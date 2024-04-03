@@ -1,50 +1,52 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import streamlit as st
 from streamlit.logger import get_logger
+import pandas as pd
+import plotly.express as px
 
 LOGGER = get_logger(__name__)
 
 
 def run():
     st.set_page_config(
-        page_title="Hello",
+        page_title="Medication Market Analysis",
         page_icon="👋",
     )
 
-    st.write("# Welcome to Streamlit! 👋")
+    st.title('Indication X Market Analysis')
 
-    st.sidebar.success("Select a demo above.")
+    ## Load Data
+    df = pd.read_csv('data.csv')
+    df['Date'] = pd.to_datetime(df['Date'])
+    # st.write(df)
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+    ## Metrics generation and rendering
+    df_total = df.groupby(['Brand']).agg({"Quantity":"count"}).rename(columns={"Quantity":"Total Sales"}).reset_index()
+
+    df_monthly_total = df.groupby([pd.Grouper(key='Date',freq='M'), 'Brand']).agg({"Quantity":"count"}).rename(columns={"Quantity":"Total Monthly Sales"}).reset_index()
+
+    df_total['Rank'] = df_total['Total Sales'].rank(ascending=False).astype(int)
+    # Metrics
+    total_sales = df_total.loc[df_total['Brand']=='Brand H'].reset_index()['Total Sales'][0]
+    
+    current_monthly_sales = df_monthly_total.loc[(df_monthly_total['Brand']=='Brand H') & (df_monthly_total['Date']=='2023-10-31 00:00:00')].reset_index()['Total Monthly Sales'][0]
+    prev_monthly_sales = df_monthly_total.loc[(df_monthly_total['Brand']=='Brand H') & (df_monthly_total['Date']=='2023-09-30 00:00:00')].reset_index()['Total Monthly Sales'][0]
+    delta = int(current_monthly_sales) - int(prev_monthly_sales)
+
+    overall_mp = df_total.loc[(df_total['Brand']=='Brand H')].reset_index()['Rank'][0]
+
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(label='Total Sales', value=int(total_sales))
+
+    with col2:
+        st.metric(label='Current Market Position', value = int(overall_mp))   
+
+    # with col3:
+
+
+    with col4:
+        st.metric(label='Current Monthly Sales',value=int(current_monthly_sales), delta=delta,delta_color="normal")
 
 
 if __name__ == "__main__":
